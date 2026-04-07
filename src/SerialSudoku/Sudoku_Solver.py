@@ -202,7 +202,7 @@ def revise(csp, xi, xj, domains, inferences):
 
 #----------------------------------
 
-with open('sudoku5_300_1.json', 'r') as f:
+with open('sudoku3_40_1.json', 'r') as f:
     board = json.load(f)
 
 printData(board)
