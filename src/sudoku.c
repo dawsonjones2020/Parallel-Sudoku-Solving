@@ -1,35 +1,34 @@
-// Sudoku generator + solver (single file)
-// Uses bitmasks + MRV + randomized backtracking
-
 #include <stdio.h>
 #include <stdlib.h>
-#include "test_boards.h"
+#include <math.h>
 
-#define FULL_MASK 0x3FE  // bits 1–9 set (0b1111111110)
+#define BOARD_SIZE 25
+int full_mask;
 
 typedef struct {
-    int board[81];     // 0 = empty
-    int row_mask[9];
-    int col_mask[9];
-    int box_mask[9];
+    int board[BOARD_SIZE * BOARD_SIZE];     // 0 = empty
+    int row_mask[BOARD_SIZE];
+    int col_mask[BOARD_SIZE];
+    int box_mask[BOARD_SIZE];
 } SudokuState;
 
 int get_box(int r, int c) {
-    return (r / 3) * 3 + (c / 3);
+    int box_size = sqrt(BOARD_SIZE);
+    return (r / box_size) * box_size + (c / box_size);
 }
 
 void init_masks(SudokuState* s) {
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < BOARD_SIZE; i++) {
         s->row_mask[i] = 0;
         s->col_mask[i] = 0;
         s->box_mask[i] = 0;
     }
 
-    for (int i = 0; i < 81; i++) {
+    for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
         int val = s->board[i];
         if (val != 0) {
-            int r = i / 9;
-            int c = i % 9;
+            int r = i / BOARD_SIZE;
+            int c = i % BOARD_SIZE;
             int b = get_box(r, c);
             int bit = 1 << val;
 
@@ -41,7 +40,7 @@ void init_masks(SudokuState* s) {
 }
 
 void place(SudokuState* s, int r, int c, int num) {
-    int idx = r * 9 + c;
+    int idx = r * BOARD_SIZE + c;
     int bit = 1 << num;
 
     s->board[idx] = num;
@@ -51,7 +50,7 @@ void place(SudokuState* s, int r, int c, int num) {
 }
 
 void remove_num(SudokuState* s, int r, int c, int num) {
-    int idx = r * 9 + c;
+    int idx = r * BOARD_SIZE + c;
     int bit = ~(1 << num);
 
     s->board[idx] = 0;
@@ -60,10 +59,10 @@ void remove_num(SudokuState* s, int r, int c, int num) {
     s->box_mask[get_box(r,c)] &= bit;
 }
 
-void load_puzzle(SudokuState* s, int input[9][9]) {
-    for (int r = 0; r < 9; r++) {
-        for (int c = 0; c < 9; c++) {
-            s->board[r*9 + c] = input[r][c];
+void load_puzzle(SudokuState* s, int input[BOARD_SIZE][BOARD_SIZE]) {
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            s->board[r*BOARD_SIZE + c] = input[r][c];
         }
     }
     // initialize masks from board
@@ -71,23 +70,31 @@ void load_puzzle(SudokuState* s, int input[9][9]) {
 }
 
 void print_board(SudokuState* s) {
-    for (int r = 0; r < 9; r++) {
-        for (int c = 0; c < 9; c++) {
-            if (c % 3 == 0 && c != 0) printf("| ");
-            printf("%d ", s->board[r * 9 + c]);
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (c % (int)sqrt(BOARD_SIZE) == 0 && c != 0) printf("| ");
+            printf("%d ", s->board[r * BOARD_SIZE + c]);
         }
-        if (r % 3 == 2 && r != 8) printf("\n------+-------+------");
+        // print horizontal box separator
         printf("\n");
+        if ((r + 1) % (int)sqrt(BOARD_SIZE) == 0 && r != BOARD_SIZE - 1){
+            for (int i = 0; i < BOARD_SIZE * 2 + (int)sqrt(BOARD_SIZE); i++){
+                printf("-");
+            }
+            printf("\n");
+        }
     }
 }
 
-int main() {
+// int main() {
+    // board_size = 9;
+    // full_mask = (1 << (board_size + 1)) - 2; // bits 1–board_size set
 
-    SudokuState s;
+    // SudokuState s;
 
-    load_puzzle(&s, puzzle1);
-    printf("Puzzle:\n");
-    print_board(&s);
+    // load_puzzle(&s, puzzle1);
+    // printf("Puzzle:\n");
+    // print_board(&s);
 
-    return 0;
-}
+    // return 0;
+// }
