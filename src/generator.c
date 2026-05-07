@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include "sudoku.c"
+
+int fill_board(SudokuState* s, int pos) {
+    if (pos == BOARD_SIZE * BOARD_SIZE)
+        return 1;
+
+    int r = pos / BOARD_SIZE;
+    int c = pos % BOARD_SIZE;
+
+    int nums[BOARD_SIZE];
+    for (int i = 0; i < BOARD_SIZE; i++)
+        nums[i] = i + 1;
+
+    // shuffle numbers
+    for (int i = BOARD_SIZE - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int tmp = nums[i];
+        nums[i] = nums[j];
+        nums[j] = tmp;
+    }
+
+    int num, box_idx, used_mask, options_mask;
+    for (int i = 0; i < BOARD_SIZE; i++) {
+        num = nums[i];
+        box_idx = get_box(r, c);
+        used_mask = s->row_mask[r] | s->col_mask[c] | s->box_mask[box_idx];
+        options_mask = full_mask & ~used_mask;
+
+        if (options_mask & (1 << num)) {
+            place(s, r, c, num);
+
+            if (fill_board(s, pos + 1))
+                return 1;
+
+            remove_num(s, r, c, num);
+        }
+    }
+
+    return 0;
+}
+
+void remove_cells(SudokuState* s, int remove_count) {
+    int total = BOARD_SIZE * BOARD_SIZE;
+
+    while (remove_count > 0) {
+        int idx = rand() % total;
+
+        if (s->board[idx] != 0) {
+            s->board[idx] = 0;
+            remove_count--;
+        }
+    }
+}
+
+void write_board(SudokuState* s, const char* filename) {
+    FILE* f = fopen(filename, "w");
+
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            fprintf(f, "%d ", s->board[r * BOARD_SIZE + c]);
+        }
+        fprintf(f, "\n");
+    }
+
+    fclose(f);
+}
+
+int main() {
+    full_mask = (1 << (BOARD_SIZE + 1)) - 2;
+    srand(time(NULL));
+
+    int missing_list[] = {10};
+    int count = sizeof(missing_list) / sizeof(missing_list[0]);
+
+    for (int i = 0; i < count; i++) {
+        int missing = missing_list[i];
+
+        printf("Generating full Sudoku...\n");
+
+        SudokuState s;
+        memset(&s, 0, sizeof(SudokuState));
+        init_masks(&s);
+
+        if (!fill_board(&s, 0)) {
+            printf("Failed to generate full board\n");
+            return 1;
+        }
+
+        SudokuState puzzle = s;
+        remove_cells(&puzzle, missing);
+
+        char filename[128];
+        sprintf(filename, "puzzle25_%d.txt", missing);
+
+        write_board(&puzzle, filename);
+
+        printf("Wrote %s\n", filename);
+    }
+
+    return 0;
+}

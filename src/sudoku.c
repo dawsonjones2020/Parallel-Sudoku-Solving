@@ -39,6 +39,61 @@ void init_masks(SudokuState* s) {
     }
 }
 
+int get_mrv(SudokuState* s, int* out_r, int* out_c) {
+    int min_options = BOARD_SIZE + 1;
+    int best_r = -1, best_c = -1;
+
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (s->board[r * BOARD_SIZE + c] != 0) continue;
+
+            int box_idx = get_box(r, c);
+            int used_mask = s->row_mask[r] | s->col_mask[c] | s->box_mask[box_idx];
+            int options_mask = full_mask & ~used_mask;
+            int options_count = __builtin_popcount(options_mask);
+
+            if (options_count < min_options) {
+                min_options = options_count;
+                best_r = r;
+                best_c = c;
+            }
+        }
+    }
+
+    *out_r = best_r;
+    *out_c = best_c;
+    if (best_r == -1) return -1;
+    return min_options;
+}
+
+int get_maxrv(SudokuState* s, int* out_r, int* out_c) {
+    int max_options = -1;
+    int best_r = -1, best_c = -1;
+
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (s->board[r * BOARD_SIZE + c] != 0) continue;
+
+            int box_idx = get_box(r, c);
+            int used_mask = s->row_mask[r] | s->col_mask[c] | s->box_mask[box_idx];
+            int options_mask = full_mask & ~used_mask;
+            int options_count = __builtin_popcount(options_mask);
+
+            // take HIGHER instead of lower
+            if (options_count > max_options) {
+                max_options = options_count;
+                best_r = r;
+                best_c = c;
+            }
+        }
+    }
+
+    *out_r = best_r;
+    *out_c = best_c;
+    if (best_r == -1) return -1;
+    return max_options;
+}
+
 void place(SudokuState* s, int r, int c, int num) {
     int idx = r * BOARD_SIZE + c;
     int bit = 1 << num;
@@ -59,6 +114,7 @@ void remove_num(SudokuState* s, int r, int c, int num) {
     s->box_mask[get_box(r,c)] &= bit;
 }
 
+// when I was loading from .h file
 void load_puzzle(SudokuState* s, int input[BOARD_SIZE][BOARD_SIZE]) {
     for (int r = 0; r < BOARD_SIZE; r++) {
         for (int c = 0; c < BOARD_SIZE; c++) {
@@ -66,6 +122,25 @@ void load_puzzle(SudokuState* s, int input[BOARD_SIZE][BOARD_SIZE]) {
         }
     }
     // initialize masks from board
+    init_masks(s);
+}
+
+void load_puzzle_from_file(SudokuState* s, const char* filename) {
+    FILE* fp = fopen(filename, "r");
+    if (!fp) {
+        perror("Can't find file\n");
+        exit(1);
+    }
+    for (int r = 0; r < BOARD_SIZE; r++) {
+        for (int c = 0; c < BOARD_SIZE; c++) {
+            if (fscanf(fp, "%d", &s->board[r * BOARD_SIZE + c]) != 1) {
+                fprintf(stderr, "Bad read at (%d,%d)\n", r, c);
+                fclose(fp);
+                exit(1);
+            }
+        }
+    }
+    fclose(fp);
     init_masks(s);
 }
 

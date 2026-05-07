@@ -56,15 +56,11 @@ if __name__ == '__main__':
         c = int(index % ms)
         board[r][c] = 0
 
-    ## Write to file
+    # write to file. Modified to be easier to parse in c
     with open(args.output_file, 'w') as f:
-        f.write(json.dumps(board))
-
-    print("""Board written to '{0}'.
-
-To read the file with Python, use the code:
-
-import json
-with open('{0}', 'r') as f:
-    board = json.load(f)
-""".format(args.output_file))
+        for r in range(ms):
+            row = []
+            for c in range(ms):
+                val = board[r][c]
+                row.append(str(val if val is not None else 0))
+            f.write(" ".join(row) + "\n")
