@@ -5,6 +5,7 @@
 #define BOARD_SIZE 25
 int full_mask;
 
+// stores sudoku state
 typedef struct {
     int board[BOARD_SIZE * BOARD_SIZE];     // 0 = empty
     int row_mask[BOARD_SIZE];
@@ -12,11 +13,13 @@ typedef struct {
     int box_mask[BOARD_SIZE];
 } SudokuState;
 
+// calculates box number based on row col
 int get_box(int r, int c) {
     int box_size = sqrt(BOARD_SIZE);
     return (r / box_size) * box_size + (c / box_size);
 }
 
+// inits masks to 0, then sets given digits to 1
 void init_masks(SudokuState* s) {
     for (int i = 0; i < BOARD_SIZE; i++) {
         s->row_mask[i] = 0;
@@ -39,6 +42,8 @@ void init_masks(SudokuState* s) {
     }
 }
 
+// get minimum remaining values
+// good heuristic for choosing cell in DFS
 int get_mrv(SudokuState* s, int* out_r, int* out_c) {
     int min_options = BOARD_SIZE + 1;
     int best_r = -1, best_c = -1;
@@ -66,6 +71,9 @@ int get_mrv(SudokuState* s, int* out_r, int* out_c) {
     return min_options;
 }
 
+// gets maximum remaining values, almost identical to get_mrv
+// only used by my parallel solver which needs HIGHER branching factors
+// to try and maximize initial task generation
 int get_maxrv(SudokuState* s, int* out_r, int* out_c) {
     int max_options = -1;
     int best_r = -1, best_c = -1;
@@ -94,6 +102,7 @@ int get_maxrv(SudokuState* s, int* out_r, int* out_c) {
     return max_options;
 }
 
+// places number on board, updates masks
 void place(SudokuState* s, int r, int c, int num) {
     int idx = r * BOARD_SIZE + c;
     int bit = 1 << num;
@@ -104,6 +113,7 @@ void place(SudokuState* s, int r, int c, int num) {
     s->box_mask[get_box(r,c)] |= bit;
 }
 
+// remomves number on board, updates masks
 void remove_num(SudokuState* s, int r, int c, int num) {
     int idx = r * BOARD_SIZE + c;
     int bit = ~(1 << num);
@@ -125,6 +135,8 @@ void load_puzzle(SudokuState* s, int input[BOARD_SIZE][BOARD_SIZE]) {
     init_masks(s);
 }
 
+// loads puzzle from file
+// needed for testing multiple files in hammer wo doing it for each test case
 void load_puzzle_from_file(SudokuState* s, const char* filename) {
     FILE* fp = fopen(filename, "r");
     if (!fp) {
@@ -144,6 +156,7 @@ void load_puzzle_from_file(SudokuState* s, const char* filename) {
     init_masks(s);
 }
 
+// prints board (kind of ugly, but it works)
 void print_board(SudokuState* s) {
     for (int r = 0; r < BOARD_SIZE; r++) {
         for (int c = 0; c < BOARD_SIZE; c++) {
@@ -161,6 +174,7 @@ void print_board(SudokuState* s) {
     }
 }
 
+// for testing sudoku logic, not for solving logic
 // int main() {
     // board_size = 9;
     // full_mask = (1 << (board_size + 1)) - 2; // bits 1–board_size set

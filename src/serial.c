@@ -4,6 +4,9 @@
 #include "sudoku.c"
 #include "test_boards.h"
 
+// basic recursive solver
+// place digit, call again
+// dead-end? return and remove num 
 int solve_recursive(SudokuState* s) {
     int r, c;
     int num_options = get_mrv(s, &r, &c);

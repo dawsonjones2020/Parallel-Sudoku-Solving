@@ -6,9 +6,10 @@
 #include "sudoku.c"
 #include "test_boards.h"
 
-#define NTHREADS 32
-#define MAX_STATES 10000
+#define NTHREADS 32 // number of threads to use
+#define MAX_STATES 10000 // max number of states to store in task lists
 
+// stores stack of tasks for each thread
 typedef struct {
     SudokuState states[MAX_STATES];
     int top;
@@ -16,18 +17,21 @@ typedef struct {
     pthread_mutex_t lock;
 } ThreadStack;
 
-ThreadStack stacks[NTHREADS];
-atomic_int solved = 0;
-SudokuState solution;
+ThreadStack stacks[NTHREADS]; // stores a stack for each thread
+atomic_int solved = 0; // global flag whether solution has been solved. for early termination
+SudokuState solution; // solution will get loaded here if/when found. Then printed in main
 
-int popped = 0;
+int popped = 0; // for testing purposes. increment count so I can see how many tasks actually read dead-end before solve
+// usually about half the tasks get popped (totally just guessing but it feels close)
 
+// push new task to given thread
 void push(ThreadStack *ts, SudokuState s) {
     pthread_mutex_lock(&ts->lock);
     ts->states[ts->top++] = s;
     pthread_mutex_unlock(&ts->lock);
 }
 
+// get new task from giiven stack
 // ret 0 if no task available
 // ret 1 if task successfully grabbed
 int pop(ThreadStack *ts, SudokuState *ret_state) {
@@ -43,6 +47,7 @@ int pop(ThreadStack *ts, SudokuState *ret_state) {
     return 1;
 }
 
+// steal from other thread
 // ret 0 if no task available to steal
 // ret 1 if task stolen
 int steal(ThreadStack *ts, SudokuState *ret_state) {
@@ -58,6 +63,10 @@ int steal(ThreadStack *ts, SudokuState *ret_state) {
     return 1;
 }
 
+// gets initial states up to the max_states (128 or 256)
+// most important function to tweak for this algorithm's performance
+// usually change the depth check to check deeper. 2 is usually deepest you can go on open boards
+// too much branching otherwise
 void init_states(SudokuState *s, SudokuState *states, int *count, int max_states, int depth) {
     if (*count >= max_states) return;
 
@@ -69,9 +78,14 @@ void init_states(SudokuState *s, SudokuState *states, int *count, int max_states
     }
 
     int r, c;
+    // I try the maxrv here to maximize number of tasks while minimizing number of cells split
+    // mrv gave TERRIBLE results because it took more cells to get the number of tasks
+    // lots of repeated work
     int num_options = get_maxrv(s, &r, &c);
     if (num_options <= 0) return;
 
+    // if I were doing this again I would make these three lines a function because
+    // I seem to call it every other function
     int box_idx = get_box(r, c);
     int used_mask = s->row_mask[r] | s->col_mask[c] | s->box_mask[box_idx];
     int options_mask = full_mask & ~used_mask;
@@ -88,7 +102,8 @@ void init_states(SudokuState *s, SudokuState *states, int *count, int max_states
     }
 }
 
-
+// basic recursive solver
+// only difference is using atomic solve checks instead
 void solve_recursive(SudokuState* s) {
     if (atomic_load(&solved)) return;
 
@@ -114,6 +129,8 @@ void solve_recursive(SudokuState* s) {
     }
 }
 
+// very basic worker since they don't make tasks
+// just do tasks until gone, then attempt to steal
 void* worker(void* arg) {
     int id = *(int*)arg;
     ThreadStack *my_stack = &stacks[id];
@@ -144,10 +161,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // so when I invert used_mask I don't invert entire int
+    // honestly may not be necessary but it made it easier to debug having the actualy bitmask available
     full_mask = (1 << (BOARD_SIZE + 1)) - 2; // bits 1–board_size set
 
     SudokuState s;
-    load_puzzle_from_file(&s, argv[1]);
+    load_puzzle_from_file(&s, argv[1]); // load from first arg
 
     printf("Puzzle:\n");
     print_board(&s);
